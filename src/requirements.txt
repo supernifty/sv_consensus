@@ -2,3 +2,4 @@ wheel
 setuptools
 PyVCF
 blist
+matplotlib
