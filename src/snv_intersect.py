@@ -17,7 +17,9 @@ import matplotlib
 matplotlib.use('Agg')
 import venn
 
-def calculate(vcfs, venn_img):
+EXAMPLES=10
+
+def calculate(vcfs, venn_img, venn_txt):
   vcf_calls = collections.defaultdict(dict)
   who = {}
   for vcf_id, filename in enumerate(vcfs):
@@ -49,6 +51,15 @@ def calculate(vcfs, venn_img):
       total_intersect = 0
       total_difference = 0
 
+      remain = EXAMPLES
+      label = []
+      for i in vcfs:
+        if i in vcf_set:
+          label.append('1')
+        else:
+          label.append('0')
+      label = ''.join(label)
+
       for chrom in vcf_calls:
         if who[vcf_set[0]] not in vcf_calls[chrom]: # chromosome not in first set
           #logging.info('{} has no variants on chromosome {}'.format(who[vcf_set[0]], chrom))
@@ -73,18 +84,21 @@ def calculate(vcfs, venn_img):
             if who[excluded] not in vcf_calls[chrom]:
               continue
             chrom_intersect.difference_update(vcf_calls[chrom][who[excluded]])
+
+        # print some examples
+        
+        for i in chrom_intersect:
+          if remain > 0:
+            sys.stderr.write('{},{},{}\n'.format(label, chrom, i))
+            remain -= 1
+          else:
+            break
         
         total_difference += len(chrom_intersect)
 
       sys.stdout.write('{},{}\n'.format(' '.join(vcf_set), total_intersect))
 
-      label = []
-      for i in vcfs:
-        if i in vcf_set:
-          label.append('1')
-        else:
-          label.append('0')
-      labels[''.join(label)] = total_difference
+      labels[label] = total_difference
 
   # venn diagram
   if venn_img is not None and 2 <= len(vcfs) <= 6:
@@ -96,13 +110,19 @@ def calculate(vcfs, venn_img):
   else:
     logging.info('skipping venn diagram generation')
 
+  if venn_txt is not None:
+    logging.info('writing venn text to %s...', venn_txt)
+    open(venn_txt, 'w').write('\n'.join(['{},{}'.format(k, labels[k]) for k in sorted(labels)]))
+    logging.info('writing venn text: done')
+
 def main():
   logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
   parser = argparse.ArgumentParser(description='SNV consensus')
   parser.add_argument('--venn', required=False, help='filename to write venn diagram to')
+  parser.add_argument('--venn_txt', required=False, help='filename to write venn intersects to')
   parser.add_argument('vcfs', nargs='+', help='input vcfs')
   args = parser.parse_args()
-  calculate(args.vcfs, args.venn)
+  calculate(args.vcfs, args.venn, args.venn_txt)
 
 if __name__ == '__main__':
   main()
